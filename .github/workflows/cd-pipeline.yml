@@ -1,30 +1,22 @@
-name: Python test and build
+name: Deploy
 
-on: [push]
+on: workflow_dispatch
 
 jobs:
-  test:
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: azure/login@v1
         with:
-          python-version: '3.9' # Specify the version you need
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-      - name: Test with pytest
-        run: |
-          pip install pytest pytest-cov
-          pytest api_tests.py --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html
-      - name: Archive code coverage results
-        uses: actions/upload-artifact@v4
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy Container App
+        uses: azure/container-apps-deploy-action@v1
         with:
-          name: test-results
-          path: junit/test-results.xml
-      - name: Submit Results
-        run: |
-          WEEK2_SUBMIT=$(curl -X POST -H "Authorization: Bearer $AZURE_ACCESS_TOKEN" -d "https://$FQDN" https://devsecops-ver.azurewebsites.net/api/week2-submit)
-          echo "Week2 submit: $WEEK2_SUBMIT"
+          imageToDeploy: ${{ secrets.DOCKERHUB_USERNAME }}/devops-labs:latest
+          containerAppName: devops-app
+          containerAppEnvironment: devops-app-env
+          resourceGroup: devsecops-lab
+          location: australiaeast
+          targetPort: 5000
+
