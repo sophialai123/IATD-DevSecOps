@@ -24,7 +24,7 @@ jobs:
         with:
           name: test-results
           path: junit/test-results.xml
-      - name: Submit to Azure
+      - name: Submit Results
         run: |
           WEEK2_SUBMIT=$(curl -X POST -H "Authorization: Bearer $AZURE_ACCESS_TOKEN" -d "https://$FQDN" https://devsecops-ver.azurewebsites.net/api/week2-submit)
           echo "Week2 submit: $WEEK2_SUBMIT"
