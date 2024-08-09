@@ -1,21 +1,3 @@
-name: Deploy
+WEEK2_SUBMIT=$(curl -X POST -H "Authorization: Bearer $AZURE_ACCESS_TOKEN" -d "https://$FQDN" https://devsecops-ver.azurewebsites.net/api/week2-submit)
+echo "Week2 submit: $WEEK2_SUBMIT"
 
-on: workflow_dispatch
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Deploy Container App
-        uses: azure/container-apps-deploy-action@v1
-        with:
-          imageToDeploy: ${{ secrets.DOCKERHUB_USERNAME }}/devops-labs:latest
-          containerAppName: devops-app
-          containerAppEnvironment: devops-app-env
-          resourceGroup: devsecops-lab
-          location: australiaeast
-          targetPort: 5000
