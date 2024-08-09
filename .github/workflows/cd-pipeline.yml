@@ -16,7 +16,7 @@ jobs:
           imageToDeploy: ${{ secrets.DOCKERHUB_USERNAME }}/devops-labs:latest
           containerAppName: devops-app
           containerAppEnvironment: devops-app-env
-          resourceGroup: devsecops-lab
+          resourceGroup: devsecops-lab2
           location: australiaeast
           targetPort: 5000
 
