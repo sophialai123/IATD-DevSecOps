@@ -7,40 +7,46 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.x'
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
       - name: Test with pytest
         run: |
           pip install pytest pytest-cov
           pytest api_tests.py --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html
+
       - name: Archive code coverage results
         uses: actions/upload-artifact@v4
-        id: artifact-upload-step
         with:
           name: test-results
           path: junit/test-results.xml
-          build:
-            needs: test
-            runs-on: ubuntu-latest
-            steps:
-              - name: Set up QEMU
-                uses: docker/setup-qemu-action@v3
-              - name: Set up Docker Buildx
-                uses: docker/setup-buildx-action@v3
-              - name: Login to Docker Hub
-                uses: docker/login-action@v3
-                with:
-                  username: ${{ secrets.DOCKERHUB_USERNAME }}
-                  password: ${{ secrets.DOCKERHUB_TOKEN }}
-              - name: Build and push
-                uses: docker/build-push-action@v5
-                with:
-                  push: true
-                  tags: ${{ secrets.DOCKERHUB_USERNAME }}/devops-labs:latest
 
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/devops-labs:latest
