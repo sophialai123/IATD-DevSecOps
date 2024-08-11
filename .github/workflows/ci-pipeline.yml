@@ -29,15 +29,14 @@ jobs:
         with:
           name: test-results
           path: junit/test-results.xml
-  
-    sonarqube:
+
+  sonarqube:
     needs: test
     if: true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         with:
-          # Disabling shallow clones is recommended for improving the relevancy of reporting
           fetch-depth: 0
       - name: SonarQube Scan
         uses: sonarsource/sonarqube-scan-action@master
@@ -91,4 +90,3 @@ jobs:
         run: |
           WEEK1_CONTAINER=$(curl -X POST -H "Authorization: Bearer $AZURE_ACCESS_TOKEN" -d "$DOCKERHUB_USERNAME/devops-labs" https://devsecops-ver.azurewebsites.net/api/week1-container)
           echo "Week1 container upload: $WEEK1_CONTAINER"
-  
