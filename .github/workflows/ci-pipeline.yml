@@ -106,7 +106,7 @@ jobs:
           sed -i "s,http://localhost:5000,https://$FQDN,g" $GITHUB_WORKSPACE/openapi_specs/openapi3.yml
 
   build:
-    needs: test
+    needs: [test, sonarqube, dast]
     runs-on: ubuntu-latest
     steps:
       - name: Set up QEMU
