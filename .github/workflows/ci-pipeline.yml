@@ -44,6 +44,19 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_URL }}
 
+      - name: Download SonarQube report
+          run: |
+          sleep 30
+          URL="${{ secrets.SONAR_URL }}/api/qualitygates/project_status?p=1&projectKey=devsecops-app&branch=main"
+          echo "Report URL $URL"
+          curl -u ${{ secrets.SONAR_TOKEN }}: "$URL" -o sonarqube-report.json
+        - name: Upload SonarQube report
+          id: artifact-sonarqube
+          uses: actions/upload-artifact@v4
+          with:
+          name: sonarqube-report
+          path: sonarqube-report.json
+
   build:
     needs: test
     runs-on: ubuntu-latest
