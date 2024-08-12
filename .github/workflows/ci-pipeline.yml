@@ -32,7 +32,6 @@ jobs:
 
   sonarqube:
     needs: test
-    if: true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
