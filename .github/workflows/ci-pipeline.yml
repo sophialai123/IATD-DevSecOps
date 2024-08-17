@@ -121,6 +121,24 @@ jobs:
           name: zap-report
           path: report_json.json
 
+  image-scan:
+    needs: [test]
+    if: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scan image
+        uses: anchore/scan-action@v3
+        id: image-scan
+        with:
+          image: ${{ secrets.DOCKERHUB_USERNAME }}/devops-labs:latest
+          fail-build: false
+          output-format: json
+      - name: Upload Image report
+        id: upload-image-report
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-report
+          path: ${{ steps.image-scan.outputs.json }}
 
   build:
     needs: [test, sonarqube, dast]
