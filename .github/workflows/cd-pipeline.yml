@@ -18,6 +18,7 @@ jobs:
           cosign verify $IMAGE  --certificate-identity-regexp $CERT_IDENTITY_REGEXP  --certificate-oidc-issuer $GITHUB_ISSUER
 
 
+
   submit_results:
     needs: [deploy]
     if: true
