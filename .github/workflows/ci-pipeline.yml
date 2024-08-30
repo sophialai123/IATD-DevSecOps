@@ -52,14 +52,13 @@ jobs:
           curl -u ${{ secrets.SONAR_TOKEN }}: "$URL" -o sonarqube-report.json
 
       - name: Upload SonarQube report
-        id: artifact-sonarqube
         uses: actions/upload-artifact@v4
         with:
           name: sonarqube-report
           path: sonarqube-report.json
 
   dast:
-    needs: [test]
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -81,7 +80,7 @@ jobs:
         with:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/devops-labs:dast-test
-      
+
       - uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
@@ -96,13 +95,14 @@ jobs:
           location: australiaeast
           targetPort: 5000
 
-      - name: Get deployed DAST app url
+      - name: Get deployed DAST app URL
         run: |
           export FQDN=$(az containerapp show -n devops-test-app -g devsecops-lab --query properties.configuration.ingress.fqdn -o tsv)
           echo "TEST_APP_URL=https://$FQDN" >> $GITHUB_ENV
-          echo "TEST_APP_URL=https://$FQDN" 
+          echo "TEST_APP_URL=https://$FQDN"
           curl https://$FQDN/ui
           sed -i "s,http://localhost:5000,https://$FQDN,g" $GITHUB_WORKSPACE/openapi_specs/openapi3.yml
+
       - name: ZAP Scan
         uses: zaproxy/action-api-scan@v0.6.0
         with:
@@ -114,16 +114,15 @@ jobs:
           cmd_options: '-a -c /zap/wrk/.zap/rules.tsv'
           fail_action: false
           allow_issue_writing: false
+
       - name: Upload ZAP report
-        id: artifact-zap
         uses: actions/upload-artifact@v4
         with:
           name: zap-report
           path: report_json.json
 
   image-scan:
-    needs: [test]
-    if: true
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Scan image
@@ -133,16 +132,15 @@ jobs:
           image: ${{ secrets.DOCKERHUB_USERNAME }}/devops-labs:latest
           fail-build: false
           output-format: json
+
       - name: Upload Image report
-        id: upload-image-report
         uses: actions/upload-artifact@v4
         with:
           name: image-report
           path: ${{ steps.image-scan.outputs.json }}
-  
+
   security_gate:
     needs: [sonarqube, dast, image-scan]
-    if: true
     runs-on: ubuntu-latest
     steps:
       - name: Download sonarqube-report
@@ -150,16 +148,19 @@ jobs:
         with:
           name: sonarqube-report
           path: ${{github.workspace}}
+
       - name: Download zap-report
         uses: actions/download-artifact@v4
         with:
           name: zap-report
           path: ${{github.workspace}}
+
       - name: Download image-report
         uses: actions/download-artifact@v4
         with:
           name: image-report
           path: ${{github.workspace}}
+
       - name: Read reports
         run: |
           IMAGE_RESULT_HIGH=$(cat results.json | jq '.matches[] | select(.vulnerability.severity=="High") | .vulnerability.id' | wc -l)
@@ -187,22 +188,25 @@ jobs:
           fi
 
           echo "All security gates passed"
+
   build:
-    needs: submit_reports
-    if: true
+    needs: security_gate
+    runs-on: ubuntu-latest
     permissions:
       id-token: write
-    runs-on: ubuntu-latest
     steps:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
@@ -220,10 +224,8 @@ jobs:
         run: |
           cosign sign --yes ${IMAGE}
 
-
   submit_results:
-    needs: [build]
-    if: true
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: azure/login@v1
@@ -234,38 +236,14 @@ jobs:
         id: token-gen
         uses: azure/CLI@v1
         with:
-          azcliversion: latest
+          azcliversion: 2.29.2
           inlineScript: |
-            ACCESS_TOKEN=$(az account get-access-token | jq -r .accessToken)
-            echo "azureAccessToken=$ACCESS_TOKEN" >> "$GITHUB_OUTPUT"
+            url="https://api.securitycenter.microsoft.com/api/token"
+            token=$(az account get-access-token --resource $url --query accessToken --output tsv)
+            echo $token > token.txt
+            echo "TOKEN=$token" >> $GITHUB_ENV
+            echo "TOKEN=$token"
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: sonarqube-report
-          path: ${{github.workspace}}
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: zap-report
-          path: ${{github.workspace}}
-
-      - name: Upload reports
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          AZURE_ACCESS_TOKEN: ${{ steps.token-gen.outputs.azureAccessToken }}
-          IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/devops-labs
+      - name: Upload DAST report to Defender for Cloud
         run: |
-          WEEK1_CONTAINER=$(curl -X POST -H "Authorization: Bearer $AZURE_ACCESS_TOKEN" -d "$DOCKERHUB_USERNAME/devops-labs" https://devsecops-ver.azurewebsites.net/api/week1-container)
-          echo "Week1 container upload: $WEEK1_CONTAINER"
-
-          SONAR_RESPONSE=$(curl -X POST -H "Authorization: Bearer $AZURE_ACCESS_TOKEN"  --data-binary @$GITHUB_WORKSPACE/sonarqube-report.json https://devsecops-ver.azurewebsites.net/api/week3-sonar-report)
-          echo "Sonar upload: $SONAR_RESPONSE"
-
-          ZAP_RESPONSE=$(curl -X POST -H "Authorization: Bearer $AZURE_ACCESS_TOKEN"  --data-binary @$GITHUB_WORKSPACE/report_json.json https://devsecops-ver.azurewebsites.net/api/week3-zap-report)
-          echo "Zap upload: $ZAP_RESPONSE"
-
-          IMAGE_RESPONSE=$(curl -X POST -H "Authorization: Bearer $AZURE_ACCESS_TOKEN" --data-binary @$GITHUB_WORKSPACE/results.json https://devsecops-ver.azurewebsites.net/api/week4-image-report)
-          echo "Image report upload: $IMAGE_RESPONSE"
-
-          WEEK5_RESPONSE=$(curl -X POST  -H "Authorization: Bearer $AZURE_ACCESS_TOKEN"  -d "$IMAGE" https://devsecops-ver.azurewebsites.net/api/week5-report)
-          echo "Week5 report upload: $WEEK5_RESPONSE"
+          curl --request POST --url https://api.securitycenter.microsoft.com/api/v1/reports --header "Authorization: Bearer ${{ steps.token-gen.outputs.TOKEN }}" --header "Content-Type: application/json" --data "@/path/to/dast-report.json"
