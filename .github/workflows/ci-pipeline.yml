@@ -47,7 +47,7 @@ jobs:
       - name: Download SonarQube report
         run: |
           sleep 30
-          URL="${{ secrets.SONAR_URL }}/api/qualitygates/project_status?p=1&projectKey=devsecops-app&branch=main"
+          URL="${{ secrets.SONAR_URL }}/api/qualitygates/project_status?projectKey=devsecops-app&branch=main"
           echo "Report URL $URL"
           curl -u ${{ secrets.SONAR_TOKEN }}: "$URL" -o sonarqube-report.json
 
@@ -147,23 +147,23 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: sonarqube-report
-          path: ${{github.workspace}}
+          path: ${{ github.workspace }}
 
       - name: Download zap-report
         uses: actions/download-artifact@v4
         with:
           name: zap-report
-          path: ${{github.workspace}}
+          path: ${{ github.workspace }}
 
       - name: Download image-report
         uses: actions/download-artifact@v4
         with:
           name: image-report
-          path: ${{github.workspace}}
+          path: ${{ github.workspace }}
 
       - name: Read reports
         run: |
-          IMAGE_RESULT_HIGH=$(cat results.json | jq '.matches[] | select(.vulnerability.severity=="High") | .vulnerability.id' | wc -l)
+          IMAGE_RESULT_HIGH=$(cat ${{ github.workspace }}/image-report.json | jq '.matches[] | select(.vulnerability.severity=="High") | .vulnerability.id' | wc -l)
           if [ $IMAGE_RESULT_HIGH -gt 0 ]; then
             echo "Image scan has high severity vulnerabilities"
             exit 1
@@ -249,21 +249,21 @@ jobs:
           curl --request POST --url https://api.securitycenter.microsoft.com/api/v1/reports --header "Authorization: Bearer ${{ steps.token-gen.outputs.TOKEN }}" --header "Content-Type: application/json" --data "@/path/to/dast-report.json"
 
       - name: Upload reports
-      env:
-       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-       AZURE_ACCESS_TOKEN: ${{ steps.token-gen.outputs.azureAccessToken }}
-       IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/devops-labs
-      run: |
-        WEEK1_CONTAINER=$(curl -X POST -H "Authorization: Bearer $AZURE_ACCESS_TOKEN" -d "$DOCKERHUB_USERNAME/devops-labs" https://devsecops-ver.azurewebsites.net/api/week1-container)
-        echo "Week1 container upload: $WEEK1_CONTAINER"
-        
-        SONAR_RESPONSE=$(curl -X POST -H "Authorization: Bearer $AZURE_ACCESS_TOKEN"  --data-binary @$GITHUB_WORKSPACE/sonarqube-report.json https://devsecops-ver.azurewebsites.net/api/week3-sonar-report)
-        echo "Sonar upload: $SONAR_RESPONSE"
-        ZAP_RESPONSE=$(curl -X POST -H "Authorization: Bearer $AZURE_ACCESS_TOKEN"  --data-binary @$GITHUB_WORKSPACE/report_json.json https://devsecops-ver.azurewebsites.net/api/week3-zap-report)
-        echo "Zap upload: $ZAP_RESPONSE"
-        
-        IMAGE_RESPONSE=$(curl -X POST -H "Authorization: Bearer $AZURE_ACCESS_TOKEN" --data-binary @$GITHUB_WORKSPACE/results.json https://devsecops-ver.azurewebsites.net/api/week4-image-report)
-        echo "Image report upload: $IMAGE_RESPONSE"
-        
-        WEEK5_RESPONSE=$(curl -X POST  -H "Authorization: Bearer $AZURE_ACCESS_TOKEN"  -d "$IMAGE" https://devsecops-ver.azurewebsites.net/api/week5-report)
-        echo "Week5 report upload: $WEEK5_RESPONSE"
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          AZURE_ACCESS_TOKEN: ${{ steps.token-gen.outputs.azureAccessToken }}
+          IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/devops-labs
+        run: |
+          WEEK1_CONTAINER=$(curl -X POST -H "Authorization: Bearer $AZURE_ACCESS_TOKEN" -d "$DOCKERHUB_USERNAME/devops-labs" https://devsecops-ver.azurewebsites.net/api/week1-container)
+          echo "Week1 container upload: $WEEK1_CONTAINER"
+
+          SONAR_RESPONSE=$(curl -X POST -H "Authorization: Bearer $AZURE_ACCESS_TOKEN"  --data-binary @$GITHUB_WORKSPACE/sonarqube-report.json https://devsecops-ver.azurewebsites.net/api/week3-sonar-report)
+          echo "Sonar upload: $SONAR_RESPONSE"
+          ZAP_RESPONSE=$(curl -X POST -H "Authorization: Bearer $AZURE_ACCESS_TOKEN"  --data-binary @$GITHUB_WORKSPACE/report_json.json https://devsecops-ver.azurewebsites.net/api/week3-zap-report)
+          echo "Zap upload: $ZAP_RESPONSE"
+
+          IMAGE_RESPONSE=$(curl -X POST -H "Authorization: Bearer $AZURE_ACCESS_TOKEN" --data-binary @$GITHUB_WORKSPACE/results.json https://devsecops-ver.azurewebsites.net/api/week4-image-report)
+          echo "Image report upload: $IMAGE_RESPONSE"
+
+          WEEK5_RESPONSE=$(curl -X POST  -H "Authorization: Bearer $AZURE_ACCESS_TOKEN"  -d "$IMAGE" https://devsecops-ver.azurewebsites.net/api/week5-report)
+          echo "Week5 report upload: $WEEK5_RESPONSE"
